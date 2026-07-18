@@ -13,13 +13,11 @@ connectDB();
 
 const app = express();
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",")
-  : ["http://localhost:5173"];
+const allowedOrigin = process.env.ALLOWED_ORIGINS || "http://localhost:5173";
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    if (!origin || origin === allowedOrigin) {
       callback(null, true);
     } else {
       callback(new Error("CORS Policy: This origin is not allowed by CORS"));
