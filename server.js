@@ -13,7 +13,7 @@ connectDB();
 
 const app = express();
 
-const allowedOrigin = process.env.ALLOWED_ORIGINS || "http://localhost:5173";
+const allowedOrigin = process.env.CLIENT_URL || "http://localhost:5173";
 
 const corsOptions = {
   origin: function (origin, callback) {

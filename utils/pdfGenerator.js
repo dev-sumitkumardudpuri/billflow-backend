@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer";
+import PDFDocument from "pdfkit";
 
 export const generateInvoicePDF = async (invoice, user, client) => {
   const selectedCurrency =
@@ -6,221 +6,258 @@ export const generateInvoicePDF = async (invoice, user, client) => {
 
   const currencySymbols = {
     USD: "$",
-    INR: "₹",
-    EUR: "€",
+    INR: "Rs.",
+    EUR: "E",
     GBP: "£",
     AUD: "A$",
     CAD: "C$",
-    JPY: "¥",
-    CNY: "¥",
+    JPY: "Y",
+    CNY: "Y",
     SGD: "S$",
     AED: "AED",
   };
 
   const currencySymbol = currencySymbols[selectedCurrency] || "$";
 
-  const itemRows = invoice.items
-    .map(
-      (item) => `
-        <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 12px; text-align: left;">
-              ${item.itemName}
-              ${item.taxRate ? `<br><small style="color: #7f8c8d;">Tax: ${item.taxRate}%</small>` : ""}
-            </td>
-            <td style="padding: 12px; text-align: center;">${item.quantity}</td>
-            <td style="padding: 12px; text-align: right;">${currencySymbol}${item.price.toFixed(2)}</td>
-            <td style="padding: 12px; text-align: right; font-weight: bold;">${currencySymbol}${item.total.toFixed(2)}</td>
-        </tr>
-    `,
-    )
-    .join("");
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ margin: 40, size: "A4" });
+      const buffers = [];
 
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <title>Invoice</title>
-    </head>
-    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 30px; color: #333; background-color: #fff;">
-        <table style="width: 100%; line-height: inherit; text-align: left; border-collapse: collapse;">
-            <tr>
-                <td colspan="4" style="padding-bottom: 40px;">
-                    <table style="width: 100%;">
-                        <tr>
-                            <td>
-                                ${user.companyDetails?.logoUrl ? `<img src="${user.companyDetails.logoUrl}" style="max-width: 150px; max-height: 60px; margin-bottom: 10px;"><br>` : ""}
-                                <span style="font-size: 24px; font-weight: bold; color: #2c3e50;">
-                                    ${user.companyDetails?.businessName || user.name.toUpperCase()}
-                                </span>
-                            </td>
-                            <td style="text-align: right; font-size: 24px; color: #7f8c8d; font-weight: 300; vertical-align: top;">
-                                INVOICE
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-            
-            <tr style="vertical-align: top;">
-                <td colspan="4" style="padding-bottom: 40px;">
-                    <table style="width: 100%;">
-                        <tr>
-                            <td style="width: 50%;">
-                                <strong style="color: #2c3e50;">From:</strong><br>
-                                ${user.name}<br>
-                                ${user.companyDetails?.address || ""}<br>
-                                ${user.email}
-                                ${user.companyDetails?.taxId ? `<br><small>Tax ID: ${user.companyDetails.taxId}</small>` : ""}
-                            </td>
-                            <td style="text-align: right; width: 50%;">
-                                <strong style="color: #2c3e50;">To:</strong><br>
-                                ${client.clientName}<br>
-                                ${client.companyName || ""}<br>
-                                ${client.address || ""}<br>
-                                ${client.email}
-                                ${client.taxId ? `<br><small>Tax ID: ${client.taxId}</small>` : ""}
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
+      doc.on("data", (chunk) => buffers.push(chunk));
+      doc.on("end", () => resolve(Buffer.concat(buffers)));
+      doc.on("error", (err) => reject(err));
 
-            <tr>
-                <td colspan="4" style="background: #f8f9fa; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
-                    <table style="width: 100%;">
-                        <tr>
-                            <td><strong>Invoice No:</strong> ${invoice.invoiceNumber}</td>
-                            <td><strong>Date of Issue:</strong> ${new Date(invoice.issueDate).toLocaleDateString()}</td>
-                            <td style="text-align: right; color: #e74c3c;"><strong>Due Date:</strong> ${new Date(invoice.dueDate).toLocaleDateString()}</td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-            
-            <tr style="background: #2c3e50; color: #fff; font-weight: bold;">
-                <td style="padding: 12px; border-radius: 4px 0 0 4px;">Description</td>
-                <td style="padding: 12px; text-align: center;">Qty</td>
-                <td style="padding: 12px; text-align: right;">Unit Price</td>
-                <td style="padding: 12px; text-align: right; border-radius: 0 4px 4px 0;">Amount</td>
-            </tr>
-            
-            ${itemRows}
-            
-            <tr>
-                <td colspan="2"></td>
-                <td style="padding: 6px 12px; text-align: right; font-size: 0.9em; color: #7f8c8d;">Subtotal:</td>
-                <td style="padding: 6px 12px; text-align: right; font-size: 0.9em; color: #7f8c8d;">${currencySymbol}${invoice.subTotal.toFixed(2)}</td>
-            </tr>
-            ${
-              invoice.taxAmount
-                ? `
-            <tr>
-                <td colspan="2"></td>
-                <td style="padding: 6px 12px; text-align: right; font-size: 0.9em; color: #7f8c8d;">Tax:</td>
-                <td style="padding: 6px 12px; text-align: right; font-size: 0.9em; color: #7f8c8d;">${currencySymbol}${invoice.taxAmount.toFixed(2)}</td>
-            </tr>
-            `
-                : ""
-            }
-            ${
-              invoice.discount
-                ? `
-            <tr>
-                <td colspan="2"></td>
-                <td style="padding: 6px 12px; text-align: right; font-size: 0.9em; color: #e74c3c;">Discount:</td>
-                <td style="padding: 6px 12px; text-align: right; font-size: 0.9em; color: #e74c3c;">-${currencySymbol}${invoice.discount.toFixed(2)}</td>
-            </tr>
-            `
-                : ""
-            }
-            <tr>
-                <td colspan="2"></td>
-                <td style="padding: 12px; text-align: right; font-weight: bold; font-size: 1.1em; border-top: 1px solid #ddd;">Grand Total:</td>
-                <td style="padding: 12px; text-align: right; font-weight: bold; font-size: 1.1em; color: #2c3e50; border-top: 1px solid #ddd;">
-                    ${currencySymbol}${invoice.grandTotal.toFixed(2)}
-                </td>
-            </tr>
+      doc
+        .fillColor("#2c3e50")
+        .fontSize(22)
+        .text(
+          user.companyDetails?.businessName || user.name.toUpperCase(),
+          40,
+          40,
+        );
+      doc
+        .fillColor("#7f8c8d")
+        .fontSize(24)
+        .text("INVOICE", 40, 40, { align: "right" });
+      doc.moveDown(1.5);
 
-            ${
-              invoice.notes
-                ? `
-            <tr>
-                <td colspan="4" style="padding-top: 20px;">
-                    <div style="font-size: 0.85em; color: #7f8c8d; max-width: 80%;">
-                        <strong>Notes:</strong> ${invoice.notes}
-                    </div>
-                </td>
-            </tr>
-            `
-                : ""
-            }
+      const startY = doc.y;
+      doc.fillColor("#2c3e50").fontSize(11).text("From:", 40, startY);
+      doc.fillColor("#333333").fontSize(10).text(user.name);
+      if (user.companyDetails?.address) doc.text(user.companyDetails.address);
+      doc.text(user.email);
+      if (user.companyDetails?.taxId)
+        doc
+          .fontSize(9)
+          .text(`Tax ID: ${user.companyDetails.taxId}`)
+          .fontSize(10);
 
-            <tr>
-                <td colspan="4" style="margin-top: 40px; padding-top: 30px;">
-                    <div style="border-top: 2px solid #2c3e50; padding-top: 15px; width: 60%;">
-                        <h4 style="margin: 0 0 10px 0; color: #2c3e50;">Payment Information</h4>
-                        
-                        ${
-                          user.bankDetails?.bankName
-                            ? `
-                          <p style="margin: 3px 0; font-size: 0.9em;"><strong>Bank Name:</strong> ${user.bankDetails.bankName}</p>
-                          <p style="margin: 3px 0; font-size: 0.9em;"><strong>Account Number:</strong> ${user.bankDetails.accountNumber || "N/A"}</p>
-                          <p style="margin: 3px 0; font-size: 0.9em;"><strong>IFSC Code:</strong> ${user.bankDetails.ifscCode || "N/A"}</p>
-                        `
-                            : ""
-                        }
-                        
-                        ${user.bankDetails?.swiftCode ? `<p style="margin: 3px 0; font-size: 0.9em;"><strong>SWIFT Code:</strong> ${user.bankDetails.swiftCode}</p>` : ""}
-                        
-                        ${
-                          user.bankDetails?.upiId
-                            ? `
-                          <p style="margin: 6px 0 3px 0; font-size: 0.9em; color: #16a085;">
-                            <strong>UPI ID:</strong> ${user.bankDetails.upiId}
-                          </p>
-                        `
-                            : ""
-                        }
-                        
-                        ${invoice.paymentTerms ? `<p style="margin: 10px 0 0 0; font-size: 0.85em; color: #2c3e50;"><strong>Terms:</strong> ${invoice.paymentTerms}</p>` : ""}
-                    </div>
-                </td>
-            </tr>
-        </table>
-    </body>
-    </html>
-    `;
+      doc
+        .fillColor("#2c3e50")
+        .fontSize(11)
+        .text("To:", 40, startY, { align: "right" });
+      doc
+        .fillColor("#333333")
+        .fontSize(10)
+        .text(client.clientName, { align: "right" });
+      if (client.companyName) doc.text(client.companyName, { align: "right" });
+      if (client.address) doc.text(client.address, { align: "right" });
+      doc.text(client.email, { align: "right" });
+      if (client.taxId)
+        doc
+          .fontSize(9)
+          .text(`Tax ID: ${client.taxId}`, { align: "right" })
+          .fontSize(10);
+      doc.moveDown(2);
 
-  let browser;
-  try {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--single-process",
-        "--no-zygote",
-      ],
-    });
+      const infoY = doc.y;
+      doc.rect(40, infoY, 515, 30).fill("#f8f9fa");
+      doc
+        .fillColor("#333333")
+        .fontSize(10)
+        .text(`Invoice No: ${invoice.invoiceNumber}`, 50, infoY + 10);
+      doc.text(
+        `Date of Issue: ${new Date(invoice.issueDate).toLocaleDateString()}`,
+        220,
+        infoY + 10,
+      );
+      doc
+        .fillColor("#e74c3c")
+        .text(
+          `Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`,
+          40,
+          infoY + 10,
+          { align: "right" },
+        );
+      doc.moveDown(2.5);
 
-    const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+      let tableY = doc.y;
 
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      margin: { top: "20px", bottom: "20px" },
-      printBackground: true,
-    });
+      doc.rect(40, tableY, 515, 25).fill("#2c3e50");
+      doc.fillColor("#ffffff").fontSize(10);
+      doc.text("Description", 50, tableY + 8);
+      doc.text("Qty", 280, tableY + 8, { width: 40, align: "center" });
+      doc.text("Unit Price", 340, tableY + 8, { width: 90, align: "right" });
+      doc.text("Amount", 450, tableY + 8, { width: 95, align: "right" });
 
-    return pdfBuffer;
-  } catch (error) {
-    console.error("Puppeteer PDF generation failed:", error.message);
-    throw error;
-  } finally {
-    if (browser) {
-      await browser.close();
+      tableY += 25;
+
+      invoice.items.forEach((item) => {
+        doc.fillColor("#333333").fontSize(10);
+
+        doc.text(item.itemName, 50, tableY + 10, { width: 220 });
+        doc.text(item.quantity.toString(), 280, tableY + 10, {
+          width: 40,
+          align: "center",
+        });
+        doc.text(
+          `${currencySymbol}${item.price.toFixed(2)}`,
+          340,
+          tableY + 10,
+          { width: 90, align: "right" },
+        );
+        doc.text(
+          `${currencySymbol}${item.total.toFixed(2)}`,
+          450,
+          tableY + 10,
+          { width: 95, align: "right" },
+        );
+
+        let rowHeight = 25;
+        if (item.taxRate) {
+          doc
+            .fillColor("#7f8c8d")
+            .fontSize(8)
+            .text(`Tax: ${item.taxRate}%`, 50, tableY + 23);
+          rowHeight = 35;
+        }
+
+        doc
+          .strokeColor("#eeeeee")
+          .lineWidth(0.5)
+          .moveTo(40, tableY + rowHeight)
+          .lineTo(555, tableY + rowHeight)
+          .stroke();
+        tableY += rowHeight;
+      });
+
+      tableY += 15;
+
+      doc
+        .fillColor("#7f8c8d")
+        .fontSize(10)
+        .text("Subtotal:", 300, tableY, { width: 130, align: "right" });
+      doc
+        .fillColor("#333333")
+        .text(`${currencySymbol}${invoice.subTotal.toFixed(2)}`, 450, tableY, {
+          width: 95,
+          align: "right",
+        });
+      tableY += 18;
+
+      if (invoice.taxAmount) {
+        doc
+          .fillColor("#7f8c8d")
+          .text("Tax:", 300, tableY, { width: 130, align: "right" });
+        doc
+          .fillColor("#333333")
+          .text(
+            `${currencySymbol}${invoice.taxAmount.toFixed(2)}`,
+            450,
+            tableY,
+            { width: 95, align: "right" },
+          );
+        tableY += 18;
+      }
+
+      if (invoice.discount) {
+        doc
+          .fillColor("#e74c3c")
+          .text("Discount:", 300, tableY, { width: 130, align: "right" });
+        doc.text(
+          `-${currencySymbol}${invoice.discount.toFixed(2)}`,
+          450,
+          tableY,
+          { width: 95, align: "right" },
+        );
+        tableY += 18;
+      }
+
+      doc
+        .strokeColor("#dddddd")
+        .lineWidth(1)
+        .moveTo(350, tableY)
+        .lineTo(555, tableY)
+        .stroke();
+      tableY += 8;
+
+      doc
+        .fillColor("#2c3e50")
+        .fontSize(12)
+        .text("Grand Total:", 300, tableY, { width: 130, align: "right" });
+      doc.text(
+        `${currencySymbol}${invoice.grandTotal.toFixed(2)}`,
+        450,
+        tableY,
+        { width: 95, align: "right" },
+      );
+      tableY += 30;
+
+      if (invoice.notes) {
+        doc.fillColor("#7f8c8d").fontSize(10).text("Notes:", 40, tableY);
+        doc.fillColor("#333333").text(invoice.notes, { width: 300 });
+        tableY += doc.heightOfString(invoice.notes, { width: 300 }) + 25;
+      }
+
+      if (tableY > 640) {
+        doc.addPage();
+        tableY = 40;
+      }
+
+      doc
+        .strokeColor("#2c3e50")
+        .lineWidth(2)
+        .moveTo(40, tableY)
+        .lineTo(250, tableY)
+        .stroke();
+      tableY += 10;
+
+      doc
+        .fillColor("#2c3e50")
+        .fontSize(11)
+        .text("Payment Information", 40, tableY);
+      doc.fontSize(9.5).fillColor("#333333");
+      tableY += 15;
+
+      if (user.bankDetails?.bankName) {
+        doc.text(`Bank Name: ${user.bankDetails.bankName}`, 40, tableY);
+        doc.text(`Account Number: ${user.bankDetails.accountNumber || "N/A"}`);
+        doc.text(`IFSC Code: ${user.bankDetails.ifscCode || "N/A"}`);
+        tableY += 35;
+      }
+
+      if (user.bankDetails?.swiftCode) {
+        doc.text(`SWIFT Code: ${user.bankDetails.swiftCode}`, 40, tableY);
+        tableY += 12;
+      }
+
+      if (user.bankDetails?.upiId) {
+        doc
+          .fillColor("#16a085")
+          .text(`UPI ID: ${user.bankDetails.upiId}`, 40, tableY);
+        tableY += 15;
+      }
+
+      if (invoice.paymentTerms) {
+        doc
+          .fillColor("#2c3e50")
+          .text(`Terms: ${invoice.paymentTerms}`, 40, tableY);
+      }
+
+      doc.end();
+    } catch (error) {
+      reject(error);
     }
-  }
+  });
 };
