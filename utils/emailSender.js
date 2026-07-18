@@ -12,7 +12,7 @@ export const sendInvoiceEmail = async (
 
   const transporter = nodemailer.createTransport({
     host: "smtp-relay.brevo.com", // Brevo SMTP Host
-    port: 587, // Port
+    port: 2525, // Port
     secure: false,
     auth: {
       user: process.env.BREVO_SMTP_LOGIN,
