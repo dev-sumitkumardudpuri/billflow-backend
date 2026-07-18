@@ -18,10 +18,18 @@ export const sendInvoiceEmail = async (
       user: process.env.BREVO_SMTP_LOGIN,
       pass: process.env.BREVO_API_KEY,
     },
+    // ---- YEH EXTRA SETTINGS ADD KI HAI RENDER KEE TIMEOUT PROBLEM KO FIXED KARNE KE LIYE ----
+    connectionTimeout: 15000, // 15 Seconds max waiting for connection
+    greetingTimeout: 15000, // 15 Seconds greeting timeout
+    socketTimeout: 30000, // 30 Seconds idle timeout
+    tls: {
+      rejectUnauthorized: false, // Strict networks par connection drop hone se bachaega
+    },
+    // --------------------------------------------------------------------------------------
   });
 
   const mailOptions = {
-    from: `"${businessName || userName || "BillFlow System"}" <${process.env.REAL_GMAIL}>`,
+    from: `"${businessName || userName || "BillFlow System"}" <${process.env.REAL_GMAIL}>`, // Aapka original verified Gmail handle karega
     to: `${clientName} <${clientEmail}>`,
     replyTo: dynamicReplyTo,
     subject: `Invoice ${invoiceNumber} from ${businessName || userName}`,
