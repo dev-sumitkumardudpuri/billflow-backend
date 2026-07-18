@@ -1,5 +1,4 @@
 import puppeteer from "puppeteer";
-import locateChrome from "locate-chrome";
 
 export const generateInvoicePDF = async (invoice, user, client) => {
   const selectedCurrency =
@@ -195,18 +194,15 @@ export const generateInvoicePDF = async (invoice, user, client) => {
 
   let browser;
   try {
-    const chromePath = await locateChrome();
-
-    if (!chromePath) {
-      throw new Error(
-        "Google Chrome could not be found on this system. Please make sure it is installed.",
-      );
-    }
-
     browser = await puppeteer.launch({
-      executablePath: chromePath,
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--single-process",
+        "--no-zygote",
+      ],
     });
 
     const page = await browser.newPage();
